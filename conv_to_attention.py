@@ -56,8 +56,8 @@ class AttentionFromConv(nn.Module):
                                               conv_layer.stride
                                               )
         
-        patch_height_out = int((im_height - patch_height_in) / conv_layer.stride[0]) + 1
-        patch_width_out = int((im_width - patch_width_in) / conv_layer.stride[1]) + 1
+        patch_height_out = int((im_height + 2 * conv_layer.padding[0] - patch_height_in) / conv_layer.stride[0]) + 1
+        patch_width_out = int((im_width + 2 * conv_layer.padding[1] - patch_width_in) / conv_layer.stride[1]) + 1
         self.rearange_out = Rearrange("b (p1 p2) c-> b c (p1) (p2)",p1 = patch_height_out, p2 = patch_width_out, c=c_out)
         self.conv = conv_layer
 
