@@ -5,7 +5,7 @@ from einops.layers.torch import Rearrange
 import torchvision.models as models
 from collections import OrderedDict
 import torch.nn.functional as F
-
+import numpy as np
 
 class AttentionFromConv(nn.Module):
     def __init__(self, im_height, im_width, conv_layer, dim_head = 1):
@@ -102,17 +102,27 @@ def test():
                 im_width=w,
                 conv_layer=conv_layer,
             )
+    max_arr = []
+    min_arr = []
+    mean_arr = []
+    for _ in range(200):
 
-    for _ in range(100):
-        
         im = torch.rand(2, c_in_at_conv, w, h)
 
-        out = att(im)       
+        out = att(im)
         con = conv_layer(im)
-        
-        div = out / con
-        print(div.abs().max(), div.min(), div.mean())
 
+        div = out / con
+
+        max_arr.append(div.abs().max().item())
+        min_arr.append(div.min().item())
+        mean_arr.append(div.mean().item())
+        print(max_arr[-1], min_arr[-1], mean_arr[-1], end="\n\n\n")
+
+    max_arr = np.array(max_arr)
+    min_arr = np.array(min_arr)
+    mean_arr = np.array(mean_arr)
+    print(f"max - {np.mean(max_arr)}, {np.std(max_arr)}, min - {np.mean(min_arr)}, {np.std(min_arr)}, mean - {np.mean(mean_arr)}, {np.std(mean_arr)}")
 
 
 
