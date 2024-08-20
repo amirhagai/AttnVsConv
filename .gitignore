@@ -1,0 +1,12 @@
+# Ignore all .png files
+*.png
+
+# Ignore all .pyc files
+*.pyc
+
+# Ignore everything in the these folders
+checkpoint/
+
+data/
+
+attn_weights/
