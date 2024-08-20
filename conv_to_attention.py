@@ -2,20 +2,17 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 from einops.layers.torch import Rearrange
-import torchvision.models as models
-from collections import OrderedDict
 import torch.nn.functional as F
 import numpy as np
-import copy
-import torchvision.transforms as T
-from torchvision.models import resnet50, ResNet50_Weights
-
+# import torchvision.transforms as T
+# from torchvision.models import resnet50, ResNet50_Weights
+import matplotlib.pyplot as plt
+from PIL import Image
 
 class AttentionFromConv(nn.Module):
     def __init__(self, im_height, im_width, conv_layer, dim_head = 1):
         super().__init__()
         
-
         dim=conv_layer.kernel_size[0] * conv_layer.kernel_size[1] * conv_layer.in_channels
         heads=conv_layer.out_channels
         c_in=conv_layer.in_channels
@@ -35,14 +32,15 @@ class AttentionFromConv(nn.Module):
         self.to_out = nn.Linear(inner_dim, inner_dim, bias = False)
 
         d_k = dim
-        orthogonal_matrix = torch.linalg.qr(torch.randn(d_k, d_k)).Q  # QR decomposition for orthonormal matrix
-        orthogonal_matrix = orthogonal_matrix.repeat(heads, 1)  # Repeat for each head
-        self.to_q.weight.data = orthogonal_matrix
-        self.to_k.weight.data = orthogonal_matrix
+        # orthogonal_matrix = torch.linalg.qr(torch.randn(d_k, d_k)).Q  # QR decomposition for orthonormal matrix
+        # orthogonal_matrix = orthogonal_matrix.repeat(heads, 1)  # Repeat for each head
+        # orthogonal_matrix = torch.eye(d_k)
+        self.to_q.weight.data = torch.eye(d_k).to(conv_layer.weight.device)
+        self.to_k.weight.data = torch.eye(d_k).to(conv_layer.weight.device)
 
         self.to_v.weight = torch.nn.Parameter(conv_layer.weight.reshape(conv_layer.out_channels, -1).clone().detach())
 
-        self.to_out.weight = torch.nn.Parameter(torch.eye(inner_dim))
+        self.to_out.weight = torch.nn.Parameter(torch.eye(inner_dim).to(conv_layer.weight.device))
 
         def unfold_function(in_channels, kernel_size_0, kernel_size_1, padding, stride):
             def unfold(image):
@@ -66,7 +64,7 @@ class AttentionFromConv(nn.Module):
         self.conv = conv_layer
 
 
-    def forward(self, x, weights=False):
+    def forward(self, x, weights=False, i=0):
 
         x = self.rearange_input(x)
         q = self.to_q(x)
@@ -79,16 +77,15 @@ class AttentionFromConv(nn.Module):
         out = torch.matmul(attn, v)
 
         if weights:
-          attn_weights = self.attend(dots)
-          return self.to_out(out), attn_weights
+          return self.rearange_out(self.to_out(out)), attn
         out = self.to_out(out) # out == out_conv[:, :, :, 0].permute(0, 2, 1)
         return self.rearange_out(out)
 
 
 
 def test_conv_to_attn():
-    w = 256
-    h = 256
+    w = 512
+    h = 512
     stride = 16
     c_in_at_conv = 13
     channels_conv = 14
@@ -109,11 +106,15 @@ def test_conv_to_attn():
     max_arr = []
     min_arr = []
     mean_arr = []
-    for _ in range(200):
+    size = 5
+    for i in range(200):
+        im = torch.rand(size, c_in_at_conv, w, h)
 
-        im = torch.rand(2, c_in_at_conv, w, h)
-
-        out = att(im)
+        out, weights = att(im, weights=True)
+        weights = weights[0].detach().numpy()[:, :, None]
+        weights = np.repeat(weights, 3, axis=2)
+        weights = (weights * 255).astype(np.uint8)
+        Image.fromarray(weights).save(f'/code/attn_weights/attn_weights_{i}.png')
         con = conv_layer(im)
 
         div = out / con
@@ -121,18 +122,14 @@ def test_conv_to_attn():
         max_arr.append(div.abs().max().item())
         min_arr.append(div.min().item())
         mean_arr.append(div.mean().item())
+        print(i)
+        print(f"(div > 0.98).sum()  / div.shape - {(div > 0.98).sum() / div.numel()}")
         print(max_arr[-1], min_arr[-1], mean_arr[-1], end="\n\n\n")
 
     max_arr = np.array(max_arr)
     min_arr = np.array(min_arr)
     mean_arr = np.array(mean_arr)
     print(f"max - {np.mean(max_arr)}, {np.std(max_arr)}, min - {np.mean(min_arr)}, {np.std(min_arr)}, mean - {np.mean(mean_arr)}, {np.std(mean_arr)}")
-
-
-
-
-
-
 
 
 def format_attr_path(attr_path):
@@ -161,116 +158,12 @@ def get_nested_attr(obj, attr_path):
         else:
             current = getattr(current, part)  # Regular attribute access
     return current
-
-
-def set_layer_by_name(obj, original_name, new_layer):
-    parts = original_name.split('.')
-    for i in range(len(parts)):
-        if '[' in parts[i] and ']' in parts[i]:
-            name, index = parts[i][:-1].split('[')
-            if i == len(parts) - 1:
-                getattr(obj, name)[int(index)] = new_layer
-            else:
-                obj = getattr(obj, name)[int(index)]
-        else:
-            if i == len(parts) - 1:
-                setattr(obj, parts[i], new_layer)
-            else:
-                obj = getattr(obj, parts[i])
-
-
-
-
-
-def get_all_convs_from_model(model):
-  handles = []
-  def add_hooks(model, parent_name="", layer_info=None):
-      if layer_info is None:
-          layer_info = {}
-
-      def forward_hook(module, input, output, name=""):
-          layer_info[name] = {"input": input[0].shape, "output": output.shape, "layer" : module, "w" : input[0].shape[2], "h" : input[0].shape[3]}
-
-      for name, layer in model.named_children():
-          # Create a path that corresponds to how you would access the attribute in the model
-          if parent_name:
-              path = f"{parent_name}.{name}"
-          else:
-              path = name
-
-          # Register hooks only on Conv layers
-          if isinstance(layer, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
-              # Here we pass 'path' to the forward hook so it knows under what key to store the shape info
-              handle = layer.register_forward_hook(lambda module, input, output, path=path: forward_hook(module, input, output, name=path))
-              handles.append(handle)
-          # Recurse into child layers
-          add_hooks(layer, path, layer_info)
-
-      return layer_info
-
-
-  layer_info = add_hooks(model)
-  dummy_input = torch.randn(2, 3, 224, 224)
-  with torch.no_grad():
-      _ = model(dummy_input)
-  for handle in handles:
-      handle.remove()
-  return layer_info
-
-
-def getresnet():
-  model_cls = getattr(models, 'resnet50')
-  model = model_cls(pretrained=True)
-  return model
-
-
-def replace_layer(model, layer_name_from_hook):
-    layer_info = get_all_convs_from_model(model)
-    set_layer_by_name(model,
-                      layer_name_from_hook,
-                      AttentionFromConv(im_height=layer_info[layer_name_from_hook]['h'],
-                                        im_width=layer_info[layer_name_from_hook]['w'],
-                                        conv_layer=layer_info[layer_name_from_hook]['layer']))
-    return model
-
-
-
-
     
     
+
 def main():
-    model = getresnet()
-    model.eval()
-    # test_conv_to_attn()
-    # from PIL import Image
-    
-    # im = Image.open("/data/imagenet/1.jpeg")
-
-    # List to store hook handles
-    # handles = []
-    # names = []
-
-    # Add hooks
-    # add_hooks(model, handles)
-    
-    replace_layer(model, 'layer4.0.conv3')
-
-    # layer_info = get_all_convs_from_model(model)
-    # set_layer_by_name(model, 'layer4.0.conv3', AttentionFromConv(im_height=layer_info['layer4.0.conv3']['h'], im_width=layer_info['layer4.0.conv3']['w'], conv_layer=layer_info['layer4.0.conv3']['layer']))
-    # Dummy input for the model
-    dummy_input = torch.randn(2, 3, 224, 224)
-
-    # Forward pass to trigger hooks
-    with torch.no_grad():
-        _ = model(dummy_input)
-
-
+    test_conv_to_attn()
 
 
 if __name__ == "__main__":
-
-    # grads_usage_example()
-    # inject_noise_to_layer_output_usage_example()    
-    # inject_noise_to_weights_usage_example()
-
     main()

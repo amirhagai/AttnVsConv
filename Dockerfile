@@ -25,7 +25,8 @@ RUN pip install --upgrade pip && \
     pip install datasets && \
     pip install peft && \
     pip install accelerate && \
-    python -m pip install optimum
+    python -m pip install optimum && \
+    pip install git+https://github.com/RobustBench/robustbench.git
 
 # Copy your application code into the container
 # (Assuming your application code is in the same directory as this Dockerfile)
