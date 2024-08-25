@@ -61,6 +61,11 @@ def main(opt, weight_path :str):
         input_shape = (1, 3, 32, 32)
         replace_layer(model, 'layer4.1.conv2', input_shape)
         ckpt_name = 'ckpt_with_replace.pth'
+    else:
+        model = ResNet18()
+        input_shape = (1, 3, 32, 32)
+        replace_layer(model, opt.arch[len('ckpt_'):], input_shape)
+        ckpt_name = f'{opt.arch}.pth'        
     
     weight_path = os.path.join(weight_path, ckpt_name)
     
@@ -138,7 +143,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '--arch',
-        type=str, default='resnet18',
+        type=str, default='ckpt_layer1.0.conv1',
         help='model name'
     )
     parser.add_argument(

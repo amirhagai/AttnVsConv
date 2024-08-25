@@ -26,8 +26,11 @@ class AttentionFromConv(nn.Module):
         self.scale = dim_head ** -0.5
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_q = nn.Linear(dim, inner_dim, bias = False)
-        self.to_k = nn.Linear(dim, inner_dim, bias = False)
+        # self.to_q = nn.Linear(dim, inner_dim, bias = False)
+        # self.to_k = nn.Linear(dim, inner_dim, bias = False)
+
+        self.to_q = nn.Linear(dim, dim, bias = False)
+        self.to_k = nn.Linear(dim, dim, bias = False)        
         self.to_v = nn.Linear(dim, inner_dim, bias = False)
         self.to_out = nn.Linear(inner_dim, inner_dim, bias = False)
 
