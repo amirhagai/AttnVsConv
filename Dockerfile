@@ -30,5 +30,5 @@ RUN pip install --upgrade pip && \
 
 # Copy your application code into the container
 # (Assuming your application code is in the same directory as this Dockerfile)
-#COPY . /app
+COPY . /app
 
