@@ -18,8 +18,8 @@ from choose_and_replace import get_all_convs_from_model, replace_layer
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-parser.add_argument('--bs', default=128, type=int, help='batch size')
-parser.add_argument('--epochs', default=1, type=int, help='batch size')
+parser.add_argument('--bs', default=64, type=int, help='batch size')
+parser.add_argument('--epochs', default=1, type=int, help='epochs')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
@@ -144,16 +144,10 @@ def main():
     
     
     # for layer in layer_info.keys():
-    layer='layer2.1.conv1'
+    layer='conv1'
     best_acc = 0 
-    # for l in layer_info.keys():
+
     net = ResNet18()
-        # net = net
-    replace_layer(net, layer, input_shape)
-    # layer = get_layer_by_name(net, l)
-        # print(f"to q shape - {layer.to_q.weight.shape}, to k shape - {layer.to_k.weight.shape}, to v shape - {layer.to_v.weight.shape}, to out.shape - {layer.to_out.weight.shape}")
-        # print()
-        # break
     if device == 'cuda':
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = True
@@ -183,6 +177,28 @@ def main():
             name=layer,
             best_acc=best_acc)
         scheduler.step()
+
+    
+    l = 'layer2.1.conv1'
+    replace_layer(net, l, input_shape)
+    # layer = get_layer_by_name(net, l)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(net.parameters(), lr=args.lr,
+                        momentum=0.9, weight_decay=5e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+
+    for epoch in range(start_epoch, start_epoch + args.epochs):
+        train(epoch, net, trainloader, device, optimizer, criterion)
+        best_acc = test(
+            epoch,
+            net,
+            testloader,
+            device,
+            criterion,
+            name=layer,
+            best_acc=best_acc)
+        scheduler.step()
+
         
 if __name__ == '__main__':
     main()

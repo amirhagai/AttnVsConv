@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 class AttentionFromConv(nn.Module):
-    def __init__(self, im_height, im_width, conv_layer, dim_head = 1):
+    def __init__(self, im_height, im_width, conv_layer, dim_head = 1, scale=1):
         super().__init__()
         
         dim=conv_layer.kernel_size[0] * conv_layer.kernel_size[1] * conv_layer.in_channels
@@ -23,11 +23,11 @@ class AttentionFromConv(nn.Module):
         
         inner_dim = dim_head *  heads
         self.heads = heads
-        self.scale = dim_head ** -0.5
+        self.scale = torch.nn.Parameter(torch.tensor([scale], dtype=torch.float32)).to(conv_layer.weight.device)
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_q = nn.Linear(dim, inner_dim, bias = False)
-        self.to_k = nn.Linear(dim, inner_dim, bias = False)
+        self.to_q = nn.Linear(dim, dim, bias = False)
+        self.to_k = nn.Linear(dim, dim, bias = False)
 
         # self.to_q = nn.Linear(dim, dim, bias = False)
         # self.to_k = nn.Linear(dim, dim, bias = False)        
@@ -38,6 +38,7 @@ class AttentionFromConv(nn.Module):
         # orthogonal_matrix = torch.linalg.qr(torch.randn(d_k, d_k)).Q  # QR decomposition for orthonormal matrix
         # orthogonal_matrix = orthogonal_matrix.repeat(heads, 1)  # Repeat for each head
         # orthogonal_matrix = torch.eye(d_k)
+        # self.scale.weight.data = torch.eye(1).to(conv_layer.weight.device) * scale
         self.to_q.weight.data = torch.eye(d_k).to(conv_layer.weight.device)
         self.to_k.weight.data = torch.eye(d_k).to(conv_layer.weight.device)
 
@@ -90,8 +91,8 @@ def test_conv_to_attn():
     w = 512
     h = 512
     stride = 16
-    c_in_at_conv = 13
-    channels_conv = 14
+    c_in_at_conv = 3
+    channels_conv = 8
     patch_height_in_at_conv = 16
     patch_width_in_at_conv = 32
 
@@ -105,11 +106,12 @@ def test_conv_to_attn():
                 im_height=h,
                 im_width=w,
                 conv_layer=conv_layer,
+                scale=10
             )
     max_arr = []
     min_arr = []
     mean_arr = []
-    size = 5
+    size = 1
     for i in range(200):
         im = torch.rand(size, c_in_at_conv, w, h)
 
