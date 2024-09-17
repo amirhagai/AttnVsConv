@@ -42,12 +42,12 @@ transform_test = transforms.Compose([
 trainset = torchvision.datasets.CIFAR10(
     root='./data', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=256, shuffle=True, num_workers=2)
+    trainset, batch_size=128, shuffle=True, num_workers=2)
 
 testset = torchvision.datasets.CIFAR10(
     root='./data', train=False, download=True, transform=transform_test)
 testloader = torch.utils.data.DataLoader(
-    testset, batch_size=1024, shuffle=False, num_workers=2)
+    testset, batch_size=512, shuffle=False, num_workers=2)
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer',
            'dog', 'frog', 'horse', 'ship', 'truck')
@@ -56,6 +56,8 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 print('==> Building model..')
 net = ResNet18()
 net = net.to(device)
+# from choose_and_replace import get_all_convs_from_model, replace_layer
+# replace_layer(net, 'layer4.1.conv2', (1, 3, 32, 32))
 if device == 'cuda':
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True

@@ -124,40 +124,64 @@ def main():
     net = net.to(device)
     layer_info = get_all_convs_from_model(net, input_shape)
     
-    for layer in layer_info.keys():
-        best_acc = 0 
+    def get_layer_by_name(obj, original_name):
+        parts = original_name.split('.')
+        for i in range(len(parts)):
+            if '[' in parts[i] and ']' in parts[i]:
+                name, index = parts[i][:-1].split('[')
+                if i == len(parts) - 1:
+                    obj = getattr(obj, name)[int(index)]
+                else:
+                    obj = getattr(obj, name)[int(index)]
+            else:
+                if i == len(parts) - 1:
+                    obj = getattr(obj, parts[i])
+                else:
+                    obj = getattr(obj, parts[i])
+        return obj
+
+
+    
+    
+    # for layer in layer_info.keys():
+    layer='conv1'
+    best_acc = 0 
+    for l in layer_info.keys():
         net = ResNet18()
-        net = net.to(device)
-        replace_layer(net, layer, input_shape)
-        if device == 'cuda':
-            net = torch.nn.DataParallel(net)
-            cudnn.benchmark = True
+        net = net
+        replace_layer(net, l, input_shape)
+        layer = get_layer_by_name(net, l)
+        print(f"to q shape - {layer.to_q.weight.shape}, to k shape - {layer.to_k.weight.shape}, to v shape - {layer.to_v.weight.shape}, to out.shape - {layer.to_out.weight.shape}")
+        print()
+    if device == 'cuda':
+        net = torch.nn.DataParallel(net)
+        cudnn.benchmark = True
 
-        if args.resume:
-            # Load checkpoint.
-            print('==> Resuming from checkpoint..')
-            assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-            checkpoint = torch.load('./checkpoint/ckpt.pth')
-            net.load_state_dict(checkpoint['net'])
-            best_acc = checkpoint['acc']
-            start_epoch = checkpoint['epoch']
+    if args.resume:
+        # Load checkpoint.
+        print('==> Resuming from checkpoint..')
+        assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
+        checkpoint = torch.load('./checkpoint/ckpt.pth')
+        net.load_state_dict(checkpoint['net'])
+        best_acc = checkpoint['acc']
+        start_epoch = checkpoint['epoch']
 
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.SGD(net.parameters(), lr=args.lr,
-                            momentum=0.9, weight_decay=5e-4)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(net.parameters(), lr=args.lr,
+                        momentum=0.9, weight_decay=5e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
-        for epoch in range(start_epoch, start_epoch + args.epochs):
-            train(epoch, net, trainloader, device, optimizer, criterion)
-            best_acc = test(
-                epoch,
-                net,
-                testloader,
-                device,
-                criterion,
-                name=layer,
-                best_acc=best_acc)
-            scheduler.step()
+    for epoch in range(start_epoch, start_epoch + args.epochs):
+        train(epoch, net, trainloader, device, optimizer, criterion)
+        best_acc = test(
+            epoch,
+            net,
+            testloader,
+            device,
+            criterion,
+            name=layer,
+            best_acc=best_acc)
+        scheduler.step()
         
 if __name__ == '__main__':
     main()

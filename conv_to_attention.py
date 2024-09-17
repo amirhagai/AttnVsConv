@@ -26,11 +26,11 @@ class AttentionFromConv(nn.Module):
         self.scale = dim_head ** -0.5
         self.attend = nn.Softmax(dim = -1)
 
-        # self.to_q = nn.Linear(dim, inner_dim, bias = False)
-        # self.to_k = nn.Linear(dim, inner_dim, bias = False)
+        self.to_q = nn.Linear(dim, inner_dim, bias = False)
+        self.to_k = nn.Linear(dim, inner_dim, bias = False)
 
-        self.to_q = nn.Linear(dim, dim, bias = False)
-        self.to_k = nn.Linear(dim, dim, bias = False)        
+        # self.to_q = nn.Linear(dim, dim, bias = False)
+        # self.to_k = nn.Linear(dim, dim, bias = False)        
         self.to_v = nn.Linear(dim, inner_dim, bias = False)
         self.to_out = nn.Linear(inner_dim, inner_dim, bias = False)
 
@@ -117,7 +117,7 @@ def test_conv_to_attn():
         weights = weights[0].detach().numpy()[:, :, None]
         weights = np.repeat(weights, 3, axis=2)
         weights = (weights * 255).astype(np.uint8)
-        Image.fromarray(weights).save(f'/code/attn_weights/attn_weights_{i}.png')
+        # Image.fromarray(weights).save(f'/code/attn_weights/attn_weights_{i}.png')
         con = conv_layer(im)
 
         div = out / con
