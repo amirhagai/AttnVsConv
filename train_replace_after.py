@@ -86,7 +86,7 @@ def test(epoch, net, testloader, device, criterion, name, best_acc):
     return best_acc
 
 
-def train_test_net(net, trainloader, testloader, start_epoch, device, layer=""):
+def train_test_net(net, trainloader, testloader, start_epoch, device, layer="", best_acc=0):
     # net = net.to(device)
     # if device.type == 'cuda':
     #     net = torch.nn.DataParallel(net)
@@ -108,7 +108,7 @@ def train_test_net(net, trainloader, testloader, start_epoch, device, layer=""):
             name=layer,
             best_acc=best_acc)
         scheduler.step()
-    
+    return best_acc
     
 
 def main():
@@ -202,12 +202,12 @@ def main():
     #         name="",
     #         best_acc=best_acc)
     #     scheduler.step()
-    train_test_net(net, trainloader, testloader, start_epoch, device, layer="")
+    best_acc = train_test_net(net, trainloader, testloader, start_epoch, device, layer="", best_acc)
 
     
     l = 'layer2.1.conv1'
     replace_layer(net, l, input_shape)
-    train_test_net(net, trainloader, testloader, start_epoch, device, layer=l)
+    best_acc = train_test_net(net, trainloader, testloader, start_epoch, device, layer=l, best_acc)
     # # layer = get_layer_by_name(net, l)
     # criterion = nn.CrossEntropyLoss()
     # optimizer = optim.SGD(net.parameters(), lr=args.lr,
