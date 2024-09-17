@@ -69,13 +69,14 @@ def getresnet():
   return model
 
 
-def replace_layer(model, layer_name_from_hook, input_shape):
+def replace_layer(model, layer_name_from_hook, input_shape, scale=1):
     layer_info = get_all_convs_from_model(model, input_shape)
     set_layer_by_name(model,
                       layer_name_from_hook,
                       AttentionFromConv(im_height=layer_info[layer_name_from_hook]['h'],
                                         im_width=layer_info[layer_name_from_hook]['w'],
-                                        conv_layer=layer_info[layer_name_from_hook]['layer']))
+                                        conv_layer=layer_info[layer_name_from_hook]['layer'], 
+                                        scale=scale))
     return model
 
 

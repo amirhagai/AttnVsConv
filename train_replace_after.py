@@ -18,8 +18,8 @@ from choose_and_replace import get_all_convs_from_model, replace_layer
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-parser.add_argument('--bs', default=64, type=int, help='batch size')
-parser.add_argument('--epochs', default=1, type=int, help='epochs')
+parser.add_argument('--bs', default=512, type=int, help='batch size')
+parser.add_argument('--epochs', default=200, type=int, help='epochs')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
@@ -81,13 +81,38 @@ def test(epoch, net, testloader, device, criterion, name, best_acc):
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(state, f'./checkpoint/ckpt_{name}.pth')
+        torch.save(state, f'./checkpoint/ckpt_{name}.pth' if name != "" else './checkpoint/ckpt.pth')
         best_acc = acc
     return best_acc
 
 
+def train_test_net(net, trainloader, testloader, start_epoch, device, layer=""):
+    # net = net.to(device)
+    # if device.type == 'cuda':
+    #     net = torch.nn.DataParallel(net)
+    #     cudnn.benchmark = True
+    
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(net.parameters(), lr=args.lr,
+                        momentum=0.9, weight_decay=5e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+
+    for epoch in range(start_epoch, start_epoch + args.epochs):
+        train(epoch, net, trainloader, device, optimizer, criterion)
+        best_acc = test(
+            epoch,
+            net,
+            testloader,
+            device,
+            criterion,
+            name=layer,
+            best_acc=best_acc)
+        scheduler.step()
+    
+    
+
 def main():
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
     # Data
@@ -120,9 +145,8 @@ def main():
     # Model
     print('==> Building model..')
     input_shape = (1, 3, 32, 32)
-    net = ResNet18()
-    net = net.to(device)
-    layer_info = get_all_convs_from_model(net, input_shape)
+    # net = ResNet18()
+    # layer_info = get_all_convs_from_model(net, input_shape)
     
     def get_layer_by_name(obj, original_name):
         parts = original_name.split('.')
@@ -144,11 +168,12 @@ def main():
     
     
     # for layer in layer_info.keys():
-    layer='conv1'
+    # layer='conv1'
     best_acc = 0 
 
     net = ResNet18()
-    if device == 'cuda':
+    net = net.to(device)
+    if device.type == 'cuda':
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = True
 
@@ -161,43 +186,45 @@ def main():
         best_acc = checkpoint['acc']
         start_epoch = checkpoint['epoch']
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=args.lr,
-                        momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+    # criterion = nn.CrossEntropyLoss()
+    # optimizer = optim.SGD(net.parameters(), lr=args.lr,
+    #                     momentum=0.9, weight_decay=5e-4)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
-    for epoch in range(start_epoch, start_epoch + args.epochs):
-        train(epoch, net, trainloader, device, optimizer, criterion)
-        best_acc = test(
-            epoch,
-            net,
-            testloader,
-            device,
-            criterion,
-            name=layer,
-            best_acc=best_acc)
-        scheduler.step()
+    # for epoch in range(start_epoch, start_epoch + args.epochs):
+    #     train(epoch, net, trainloader, device, optimizer, criterion)
+    #     best_acc = test(
+    #         epoch,
+    #         net,
+    #         testloader,
+    #         device,
+    #         criterion,
+    #         name="",
+    #         best_acc=best_acc)
+    #     scheduler.step()
+    train_test_net(net, trainloader, testloader, start_epoch, device, layer="")
 
     
     l = 'layer2.1.conv1'
     replace_layer(net, l, input_shape)
-    # layer = get_layer_by_name(net, l)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=args.lr,
-                        momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+    train_test_net(net, trainloader, testloader, start_epoch, device, layer=l)
+    # # layer = get_layer_by_name(net, l)
+    # criterion = nn.CrossEntropyLoss()
+    # optimizer = optim.SGD(net.parameters(), lr=args.lr,
+    #                     momentum=0.9, weight_decay=5e-4)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
-    for epoch in range(start_epoch, start_epoch + args.epochs):
-        train(epoch, net, trainloader, device, optimizer, criterion)
-        best_acc = test(
-            epoch,
-            net,
-            testloader,
-            device,
-            criterion,
-            name=layer,
-            best_acc=best_acc)
-        scheduler.step()
+    # for epoch in range(start_epoch, start_epoch + args.epochs):
+    #     train(epoch, net, trainloader, device, optimizer, criterion)
+    #     best_acc = test(
+    #         epoch,
+    #         net,
+    #         testloader,
+    #         device,
+    #         criterion,
+    #         name=l,
+    #         best_acc=best_acc)
+    #     scheduler.step()
 
         
 if __name__ == '__main__':

@@ -18,7 +18,7 @@ from choose_and_replace import get_all_convs_from_model, replace_layer
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-parser.add_argument('--bs', default=128, type=int, help='batch size')
+parser.add_argument('--bs', default=1024, type=int, help='batch size')
 parser.add_argument('--epochs', default=1, type=int, help='batch size')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
@@ -149,7 +149,7 @@ def main():
     # for l in layer_info.keys():
     net = ResNet18()
         # net = net
-    replace_layer(net, layer, input_shape)
+    replace_layer(net, layer, input_shape, scale=10)
     # layer = get_layer_by_name(net, l)
         # print(f"to q shape - {layer.to_q.weight.shape}, to k shape - {layer.to_k.weight.shape}, to v shape - {layer.to_v.weight.shape}, to out.shape - {layer.to_out.weight.shape}")
         # print()
@@ -157,6 +157,15 @@ def main():
     if device == 'cuda':
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = True
+        
+    best_acc = test(
+        epoch,
+        net,
+        testloader,
+        device,
+        criterion,
+        name=f"{layer}_replace",
+        best_acc=best_acc)
 
     if args.resume:
         # Load checkpoint.
@@ -180,7 +189,7 @@ def main():
             testloader,
             device,
             criterion,
-            name=layer,
+            name=f"{layer}_replace",
             best_acc=best_acc)
         scheduler.step()
         
