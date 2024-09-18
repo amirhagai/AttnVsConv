@@ -7,6 +7,7 @@ from injection import (
     inject_noise_to_layer_output,
     inject_noise_to_weights
     )
+import torch.backends.cudnn as cudnn
 
 
 def set_layer_by_name(obj, original_name, new_layer):
@@ -70,13 +71,26 @@ def getresnet():
 
 
 def replace_layer(model, layer_name_from_hook, input_shape, scale=1):
+    module_flag = False
+    if 'module' in layer_name_from_hook:
+        module_flag = True
+        model = model.module
+        layer_name_from_hook = layer_name_from_hook[len('module.'):]
+        model = model.to('cpu')
     layer_info = get_all_convs_from_model(model, input_shape)
-    set_layer_by_name(model,
-                      layer_name_from_hook,
-                      AttentionFromConv(im_height=layer_info[layer_name_from_hook]['h'],
+    new_layer = AttentionFromConv(im_height=layer_info[layer_name_from_hook]['h'],
                                         im_width=layer_info[layer_name_from_hook]['w'],
                                         conv_layer=layer_info[layer_name_from_hook]['layer'], 
-                                        scale=scale))
+                                        scale=scale)
+    set_layer_by_name(model,
+                      layer_name_from_hook,
+                      new_layer)
+
+    if module_flag:
+        model = model.to("cuda")
+        model = torch.nn.DataParallel(model)
+        cudnn.benchmark = True
+    
     return model
 
 
