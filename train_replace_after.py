@@ -17,9 +17,9 @@ from choose_and_replace import get_all_convs_from_model, replace_layer
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--bs', default=512, type=int, help='batch size')
-parser.add_argument('--epochs', default=200, type=int, help='epochs')
+parser.add_argument('--epochs', default=400, type=int, help='epochs')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
@@ -95,7 +95,7 @@ def train_test_net(net, trainloader, testloader, start_epoch, device, layer="", 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(net.parameters(), lr=args.lr,
                         momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=400)
 
     for epoch in range(start_epoch, start_epoch + args.epochs):
         train(epoch, net, trainloader, device, optimizer, criterion)
@@ -170,6 +170,8 @@ def main():
     # for layer in layer_info.keys():
     # layer='conv1'
     best_acc = 0 
+    args.resume = True
+
 
     net = ResNet18()
     net = net.to(device)
@@ -202,12 +204,15 @@ def main():
     #         name="",
     #         best_acc=best_acc)
     #     scheduler.step()
-    best_acc = train_test_net(net, trainloader, testloader, start_epoch, device, layer="", best_acc)
+    if not args.resume:
+        best_acc = train_test_net(net, trainloader, testloader, start_epoch, device, layer="", best_acc=best_acc)
 
-    
-    l = 'layer2.1.conv1'
-    replace_layer(net, l, input_shape)
-    best_acc = train_test_net(net, trainloader, testloader, start_epoch, device, layer=l, best_acc)
+
+    l = 'module.layer2.1.conv1'
+    best_acc = test(0, net, testloader, device, criterion = nn.CrossEntropyLoss(), name=l, best_acc=best_acc)
+    replace_layer(net, l, input_shape, scale=10)
+    best_acc = test(0, net, testloader, device, criterion = nn.CrossEntropyLoss(), name=l, best_acc=best_acc)
+    best_acc = train_test_net(net, trainloader, testloader, start_epoch, device, layer=l, best_acc=best_acc)
     # # layer = get_layer_by_name(net, l)
     # criterion = nn.CrossEntropyLoss()
     # optimizer = optim.SGD(net.parameters(), lr=args.lr,
