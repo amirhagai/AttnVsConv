@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 class AttentionFromConv(nn.Module):
-    def __init__(self, im_height, im_width, conv_layer, dim_head = 1, scale=1):
+    def __init__(self, im_height, im_width, conv_layer, dim_head = 1, scale=1, inner_dim_qk=None):
         super().__init__()
         
         dim=conv_layer.kernel_size[0] * conv_layer.kernel_size[1] * conv_layer.in_channels
@@ -25,9 +25,12 @@ class AttentionFromConv(nn.Module):
         self.heads = heads
         self.scale = torch.nn.Parameter(torch.tensor([scale], dtype=torch.float32)).to(conv_layer.weight.device)
         self.attend = nn.Softmax(dim = -1)
+        
+        if not inner_dim_qk:
+            inner_dim_qk = dim
 
-        self.to_q = nn.Linear(dim, dim, bias = False)
-        self.to_k = nn.Linear(dim, dim, bias = False)
+        self.to_q = nn.Linear(dim, inner_dim_qk, bias = False)
+        self.to_k = nn.Linear(dim, inner_dim_qk, bias = False)
 
         # self.to_q = nn.Linear(dim, dim, bias = False)
         # self.to_k = nn.Linear(dim, dim, bias = False)        
@@ -39,8 +42,10 @@ class AttentionFromConv(nn.Module):
         # orthogonal_matrix = orthogonal_matrix.repeat(heads, 1)  # Repeat for each head
         # orthogonal_matrix = torch.eye(d_k)
         # self.scale.weight.data = torch.eye(1).to(conv_layer.weight.device) * scale
-        self.to_q.weight.data = torch.eye(d_k).to(conv_layer.weight.device)
-        self.to_k.weight.data = torch.eye(d_k).to(conv_layer.weight.device)
+        
+        self.to_q.weight.data = torch.eye(inner_dim_qk, dim).to(conv_layer.weight.device)
+        self.to_k.weight.data = torch.eye(inner_dim_qk, dim).to(conv_layer.weight.device)
+
 
         self.to_v.weight = torch.nn.Parameter(conv_layer.weight.reshape(conv_layer.out_channels, -1).clone().detach())
 

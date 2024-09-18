@@ -19,9 +19,11 @@ from choose_and_replace import get_all_convs_from_model, replace_layer
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--bs', default=512, type=int, help='batch size')
-parser.add_argument('--epochs', default=400, type=int, help='epochs')
+parser.add_argument('--epochs', default=1500, type=int, help='epochs')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
+parser.add_argument('--optimizer', '-o', default='SGD',
+                    help='SGD / AdamW')
 args = parser.parse_args()
 
 
@@ -93,8 +95,15 @@ def train_test_net(net, trainloader, testloader, start_epoch, device, layer="", 
     #     cudnn.benchmark = True
     
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=args.lr,
-                        momentum=0.9, weight_decay=5e-4)
+    if args.optimizer == 'SGD':
+        optimizer = optim.SGD(net.parameters(), lr=args.lr,
+                            momentum=0.9, weight_decay=5e-4)
+        
+    elif args.optimizer == 'AdamW':
+        optimizer = optim.AdamW(net.parameters(), lr=args.lr,
+                            weight_decay=5e-4)
+    else:
+        return 0
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=400)
 
     for epoch in range(start_epoch, start_epoch + args.epochs):
@@ -186,7 +195,7 @@ def main():
         checkpoint = torch.load('./checkpoint/ckpt.pth')
         net.load_state_dict(checkpoint['net'])
         best_acc = checkpoint['acc']
-        start_epoch = checkpoint['epoch']
+        # start_epoch = checkpoint['epoch']
 
     # criterion = nn.CrossEntropyLoss()
     # optimizer = optim.SGD(net.parameters(), lr=args.lr,
@@ -233,4 +242,10 @@ def main():
 
         
 if __name__ == '__main__':
+    args.optimizer = 'AdamW'
     main()
+    print(end='\n\n\n\n\n')
+    
+    args.optimizer = 'SGD'
+    main()
+    print(end='\n\n\n\n\n')
