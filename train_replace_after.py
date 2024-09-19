@@ -96,15 +96,17 @@ def train_test_net(net, trainloader, testloader, start_epoch, device, layer="", 
     
     criterion = nn.CrossEntropyLoss()
     if args.optimizer == 'SGD':
-        optimizer = optim.SGD(net.parameters(), lr=args.lr,
+        lr = lr=args.lr
+        optimizer = optim.SGD(net.parameters(), lr=lr,
                             momentum=0.9, weight_decay=5e-4)
         
     elif args.optimizer == 'AdamW':
-        optimizer = optim.AdamW(net.parameters(), lr=args.lr,
+        lr = args.lr / 50.
+        optimizer = optim.AdamW(net.parameters(), lr=lr,
                             weight_decay=5e-4)
     else:
         return 0
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=400)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
     for epoch in range(start_epoch, start_epoch + args.epochs):
         train(epoch, net, trainloader, device, optimizer, criterion)
