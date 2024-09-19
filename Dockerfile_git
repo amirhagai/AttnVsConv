@@ -37,3 +37,5 @@ RUN git clone https://github.com/amirhagai/AttnVsConv.git /app || \
 
 # Entry point or command to run your app (optional)
 # CMD ["python", "main.py"]  # Replace with your entrypoint
+RUN ./checkpoint /app/checkpoint
+RUN ./data /app/data
