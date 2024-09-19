@@ -1,0 +1,39 @@
+# Use the PyTorch 2.0.1 image as the base image
+FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
+
+# Set the working directory in the container
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    git \
+    && apt-get clean
+
+# Install the necessary Python packages
+RUN pip install --upgrade pip && \
+    pip install \
+    numpy \
+    einops \
+    torchvision \
+    pandas \
+    scikit-learn \
+    opencv-python-headless \
+    pillow \
+    matplotlib \
+    seaborn && \
+    pip install --upgrade diffusers[torch] && \
+    pip install transformers && \
+    pip install datasets && \
+    pip install peft && \
+    pip install accelerate && \
+    python -m pip install optimum && \
+    pip install git+https://github.com/RobustBench/robustbench.git
+
+# Clone or update your repository during build
+# Replace the repository URL and branch name with your own
+RUN git clone https://github.com/amirhagai/AttnVsConv.git /app || \
+    (cd /app && git fetch origin && git pull origin main)
+
+# Set up environment variables or additional configurations if needed
+
+# Entry point or command to run your app (optional)
+# CMD ["python", "main.py"]  # Replace with your entrypoint
